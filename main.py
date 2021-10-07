@@ -58,7 +58,6 @@ def connect_and_subscribe():
   client.connect()
   client.subscribe(TOPIC_SUB)
   print('Connected to %s MQTT broker, subscribed to %s topic' % (MQTT_SERVER, TOPIC_SUB))
-  send_status()
   return client
 
 def restart_and_reconnect():
@@ -74,11 +73,11 @@ except OSError as e:
   print(e)
   restart_and_reconnect()
 
-last_message = 0
+last_message = -55
 message_interval = 60
 
-while True:
-  try:
+try:
+  while True:
     client.check_msg()
     if (time.time() - last_message) >= message_interval:
       send_status()
@@ -86,10 +85,12 @@ while True:
       gc.collect()
     leds.update()
     time.sleep(0.02)
-  except OSError as e:
+    if station.isconnected() == False:
+      leds.setColor(0, 60)
+except:
+  try:
     send_status("loop error")
-    restart_and_reconnect()
-  if station.isconnected() == False:
-    leds.init(0)
-    leds.setColor(0, 60)
-    
+  except:
+    print("fatal error")
+
+restart_and_reconnect()
