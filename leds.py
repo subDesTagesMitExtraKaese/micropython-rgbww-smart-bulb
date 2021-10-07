@@ -62,9 +62,9 @@ class Leds:
         continue
       if self.stepId[i] > self.steps:
         self.diff[i] = 0
-        if self.pwm[i].duty() == 0 or not self.enabled:
+        if self.vals[i] == 0 or not self.enabled:
           self.deinit(i)
       else:
-        self.pwm[i].duty(int(self.vals[i] - self.diff[i] * float(self.steps - self.stepId[i]) / self.steps))
+        self.pwm[i].duty(int(self.vals[i] - self.diff[i] * float(self.steps - self.stepId[i]) / self.steps) - 1)
         self.stepId[i] += 1
   
