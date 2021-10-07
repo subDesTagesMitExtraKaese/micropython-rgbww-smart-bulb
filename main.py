@@ -7,81 +7,44 @@ import ujson
 import network
 
 from umqttsimple import MQTTClient
-from config import mqtt_server, client_id, topic_sub, topic_pub
+from config import MQTT_SERVER, CLIENT_ID, TOPIC_SUB, TOPIC_PUB, LED_LIST
+from leds import Leds
 
 import gc
 gc.collect()
 
 station = network.WLAN(network.STA_IF)
-
-vals = {
-  'C': 0,
-  'G': 0,
-  'R': 0,
-  'W': 0,
-  'B': 0
-}
-duration = 50
-pwm = {}
-def initPWM():
-  global pwm
-  pwm = {
-    'C': PWM(Pin(Pin.PB_16), channel=2, freq=800, duty=vals['C']),
-    'G': PWM(Pin(Pin.PB_13), channel=1, freq=800, duty=vals['G']),
-    'R': PWM(Pin(Pin.PA_05), channel=0, freq=800, duty=vals['R']),
-    'W': PWM(Pin(Pin.PB_08), channel=4, freq=800, duty=vals['W']),
-    'B': PWM(Pin(Pin.PB_15), channel=3, freq=800, duty=vals['B'])
-  }
-initPWM()
-
-def fade():
-  global pwm, vals, duration
-  if duration > 2:
-    diff = {}
-    for color in pwm:
-      diff[color] = float(vals[color] - pwm[color].duty()) / (duration-1)
-    for i in range(duration-1, 1, -1):
-      for color in pwm:
-        pwm[color].duty(int(vals[color] - diff[color] * i))
-      time.sleep(0.02)
-  
-  for color in pwm:
-    pwm[color].duty(vals[color])
+leds = Leds()
 
 def sub_cb(topic, msg):
-  global pwm, vals, duration
   try:
     cmd = ujson.loads(str(msg, 'utf-8'))
     if 'state' in cmd:
       if cmd['state'] == "OFF":
-        for color in pwm:
-          pwm[color].deinit()
-        pwm = {}
+        leds.disableAll()
       else:
-        initPWM()
+        leds.enableAll()
     if 'speed' in cmd:
-      duration = int(cmd['fade'])
+      leds.steps = int(cmd['fade'])
     if 'color' in cmd:
-      for color in vals:
+      for i, (color, _, _) in enumerate(LED_LIST):
         if color in cmd['color']:
           val = int(cmd['color'][color])
           if val >= 0 and val <= 255:
-            vals[color] = val
-      fade()
+            leds.setColor(i, val)
     if 'reset' in cmd:
       machine.reset()
     
   except Exception as e:
-    client.publish(topic_pub, b"error")
+    client.publish(TOPIC_PUB, b"error")
 
 
 def connect_and_subscribe():
-  global client_id, mqtt_server, topic_sub
-  client = MQTTClient(client_id, mqtt_server)
+  client = MQTTClient(CLIENT_ID, MQTT_SERVER)
   client.set_callback(sub_cb)
   client.connect()
-  client.subscribe(topic_sub)
-  print('Connected to %s MQTT broker, subscribed to %s topic' % (mqtt_server, topic_sub))
+  client.subscribe(TOPIC_SUB)
+  print('Connected to %s MQTT broker, subscribed to %s topic' % (MQTT_SERVER, TOPIC_SUB))
   return client
 
 def restart_and_reconnect():
@@ -91,7 +54,7 @@ def restart_and_reconnect():
 
 try:
   client = connect_and_subscribe()
-  client.set_last_will(topic_pub, b"offline", retain=False, qos=0)
+  client.set_last_will(TOPIC_PUB, b"offline", retain=False, qos=0)
   client.sock.settimeout(10)
 except OSError as e:
   print(e)
@@ -103,17 +66,19 @@ counter = 0
 
 while True:
   try:
-    client.wait_msg()
+    client.check_msg()
     if (time.time() - last_message) > message_interval:
       msg = b'online #%d' % counter
-      client.publish(topic_pub, msg)
+      client.publish(TOPIC_PUB, msg)
       last_message = time.time()
       gc.collect()
       counter += 1
+    leds.update()
+    time.sleep(0.02)
   except OSError as e:
-    client.publish(topic_pub, b"OSError")
+    client.publish(TOPIC_PUB, b"OSError")
     restart_and_reconnect()
   if station.isconnected() == False:
-    if 'R' in pwm:
-      pwm['R'].duty(60)
+    leds.enable(0)
+    leds.setColor(0, 60)
     
