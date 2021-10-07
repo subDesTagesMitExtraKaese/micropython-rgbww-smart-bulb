@@ -13,30 +13,43 @@ from leds import Leds
 import gc
 gc.collect()
 
-station = network.WLAN(network.STA_IF)
 leds = Leds()
+leds.setColor(2, 1)
+leds.update()
+
+station = network.WLAN(network.STA_IF)
+
+def send_status(error = None):
+  msg = {
+    'state': "ON" if leds.enabled else "OFF",
+    'speed': leds.steps,
+    'color': {LED_LIST[i][0]: leds.vals[i] for i in range(len(LED_LIST))},
+    'time' : time.time(),
+    'error': error
+  }
+  msg = ujson.dumps(msg)
+  client.publish(TOPIC_PUB, bytes(msg, 'utf-8'))
 
 def sub_cb(topic, msg):
   try:
     cmd = ujson.loads(str(msg, 'utf-8'))
     if 'state' in cmd:
       if cmd['state'] == "OFF":
-        leds.disableAll()
+        leds.disable()
       else:
-        leds.enableAll()
+        leds.enable()
     if 'speed' in cmd:
-      leds.steps = int(cmd['fade'])
+      leds.setSteps(int(cmd['speed']))
     if 'color' in cmd:
       for i, (color, _, _) in enumerate(LED_LIST):
         if color in cmd['color']:
-          val = int(cmd['color'][color])
-          if val >= 0 and val <= 255:
-            leds.setColor(i, val)
+          leds.setColor(i, int(cmd['color'][color]))
     if 'reset' in cmd:
       machine.reset()
+    send_status()
     
   except Exception as e:
-    client.publish(TOPIC_PUB, b"error")
+    send_status("cb error")
 
 
 def connect_and_subscribe():
@@ -61,24 +74,21 @@ except OSError as e:
   restart_and_reconnect()
 
 last_message = 0
-message_interval = 10
-counter = 0
+message_interval = 60
 
 while True:
   try:
     client.check_msg()
-    if (time.time() - last_message) > message_interval:
-      msg = b'online #%d' % counter
-      client.publish(TOPIC_PUB, msg)
+    if (time.time() - last_message) >= message_interval:
+      send_status()
       last_message = time.time()
       gc.collect()
-      counter += 1
     leds.update()
     time.sleep(0.02)
   except OSError as e:
-    client.publish(TOPIC_PUB, b"OSError")
+    send_status("loop error")
     restart_and_reconnect()
   if station.isconnected() == False:
-    leds.enable(0)
+    leds.init(0)
     leds.setColor(0, 60)
     
