@@ -28,7 +28,7 @@ def send_status(error = None):
     'error': error
   }
   msg = ujson.dumps(msg)
-  client.publish(TOPIC_PUB, bytes(msg, 'utf-8'))
+  client.publish(TOPIC_PUB, bytes(msg, 'utf-8'), retain=True, qos=0)
 
 def sub_cb(topic, msg):
   try:
@@ -58,6 +58,7 @@ def connect_and_subscribe():
   client.connect()
   client.subscribe(TOPIC_SUB)
   print('Connected to %s MQTT broker, subscribed to %s topic' % (MQTT_SERVER, TOPIC_SUB))
+  send_status()
   return client
 
 def restart_and_reconnect():
@@ -67,7 +68,7 @@ def restart_and_reconnect():
 
 try:
   client = connect_and_subscribe()
-  client.set_last_will(TOPIC_PUB, b"offline", retain=False, qos=0)
+  client.set_last_will(TOPIC_PUB, b"offline", retain=True, qos=0)
   client.sock.settimeout(10)
 except OSError as e:
   print(e)
