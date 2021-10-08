@@ -9,7 +9,7 @@ try:
   from config import LED_LIST
   for i in range(len(LED_LIST)):
     pin = machine.Pin(LED_LIST[i][1], machine.Pin.OUT, machine.Pin.PULL_DOWN)
-    machine.PWM(pin, channel=LED_LIST[i][2], freq=800, duty=100 if i in [0, 4] else 0)
+    machine.PWM(pin, channel=LED_LIST[i][2], freq=800, duty=LED_LIST[i][3])
 
   import network
 

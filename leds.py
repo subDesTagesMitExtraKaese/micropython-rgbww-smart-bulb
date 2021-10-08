@@ -7,7 +7,7 @@ class Leds:
   def __init__(self):
     self.led_count = len(LED_LIST)
     self.pwm = [None] * self.led_count
-    self.vals = [0] * self.led_count
+    self.vals = [x[3] for x in LED_LIST]
     self.diff = [0] * self.led_count
     self.stepId = [0] * self.led_count
     self.steps = 50

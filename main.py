@@ -13,7 +13,6 @@ import gc
 gc.collect()
 
 leds = Leds()
-leds.setColor(2, 1)
 leds.update()
 
 station = network.WLAN(network.STA_IF)
@@ -40,7 +39,8 @@ def sub_cb(topic, msg):
     if 'speed' in cmd:
       leds.setSteps(int(cmd['speed']))
     if 'color' in cmd:
-      for i, (color, _, _) in enumerate(LED_LIST):
+      for i in range(len(LED_LIST)):
+        color = LED_LIST[i][0]
         if color in cmd['color']:
           leds.setColor(i, int(cmd['color'][color]))
     if 'reset' in cmd:
@@ -86,7 +86,7 @@ try:
     time.sleep(0.02)
     if station.isconnected() == False:
       leds.setColor(0, 60)
-except:
+except Exception as e:
   try:
     send_status("loop error")
   except:
