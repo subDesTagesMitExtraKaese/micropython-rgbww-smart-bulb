@@ -2,7 +2,6 @@
 
 import time
 import machine
-from machine import Pin, PWM
 import ujson
 import network
 
